@@ -1,0 +1,157 @@
+---
+# Create Namespaces for OpenSearch
+apiVersion: v1
+kind: Namespaces
+metadata:
+  name: opensearch
+  labels:
+    name: opensearch-ns
+    environment: opensearch-ns
+    
+---
+# OpenSearch Node Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-svc
+  namespace: opensearch
+  labels:
+    name: opensearch-apps
+    app: opensearch-apps
+spec:
+  type: LoadBalancer
+  selector:
+    matchlabels:
+      name: opensearch-apps
+      app: opensearch-apps
+  ports:
+    - name: http
+      protocol: TCP
+      port: 9200
+      targetPort: 9200
+    - name: analyzer-http
+      protocol: TCP
+      port: 9600
+      targetPort: 9600
+status:
+  LoadBalancer: {}
+---
+# OpenSearch Node Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch-deployment
+  namespace: opensearch
+  labels:
+    app: opensearch-node
+spec:
+  replicas: 3
+  selecto:
+    matchLabels:
+      name: opensearch-apps
+      app: opensearch-apps
+  template:
+    metadata:
+      labels:
+        app: opensearch-apps
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - { key: role, operator: In, values: [ ingest ] }
+              topologyKey: "kubernetes.io/hostname"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - { key: es-ingest, operator: In, values: [ "true" ] }
+      containers:
+        - name: opensearch-apps
+          image: opensearchproject/opensearch:1.2.0
+          env:
+            - name: NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+            - name: NODE_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+            - name: OPENSEARCH_JAVA_OPTS
+                value: -Xms512m -Xmx512m
+            - name: PROCESSORS
+                valueFrom:
+                  resourceFieldRef:
+                    resource: limits.cpu
+          resources:
+            requests:
+              cpu: 1
+            limits:
+              cpu: 2
+          ports:
+            - name: http
+              containerPorts: 9200
+              protocol: TCP
+            - name: analyzer-port
+              containerPort: 9600
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: transport3
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      restartPolicy: onFailure
+---
+# OpenSearch Dashboards Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboard-svc
+  namespace: opensearch
+  labels:
+    name: opensearch-dashboards
+    app: opensearch-dashboards
+spec:
+  type: LoadBalancer
+  selector:
+    matchlabels:
+      name: opensearch-dashboards
+      app: opensearch-dashboards
+  ports:
+    - name: http
+      protocol: TCP
+      port: 5601
+      targetPort: 5601
+status:
+  LoadBalancer: {}
+---
+# OpenSearch Dashboards Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch-dashboards-deployment
+  namespace: opensearch
+  labels:
+    name: opensearch-dashboards
+    app: opensearch-dashboards
+spec:
+  replicas: 2
+  selecto:
+    matchLabels:
+      app: opensearch-dashboards
+  template:
+    metadata:
+      labels:
+        app: opensearch-dashboards
+    spec:
+      containers:
+        - name: opensearch-dashboards
+          image: opensearchproject/opensearch-dashboards:1.2.0
+          ports:
+            - name: http
+              containerPorts: 5601
+              protocol: TCP
+      restartPolicy: onFailure
