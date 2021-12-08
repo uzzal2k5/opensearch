@@ -226,6 +226,118 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: opens-client
+  namespace: opensearch
+  labels:
+    component: opensearch
+    role: client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: opens-client
+      component: opensearch
+      role: client
+  template:
+    metadata:
+      labels:
+        name: opens-client
+        component: opensearch
+        role: client
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: role
+                      operator: In
+                      values:
+                        - client
+                topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: init-sysctl
+          image: busybox:1.27.2
+          command:
+            - sysctl
+            - -w
+            - vm.max_map_count=262144
+          securityContext:
+            privileged: true
+      containers:
+        - name: opens-client-app
+          image: opensearchproject/opensearch:1.2.0
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CLUSTER_NAME
+              value: opensearch_cluster
+            - name: NODE_MASTER
+              value: "false"
+            - name: NODE_INGEST
+              value: "false"
+            - name: NODE_DATA
+              value: "false"
+            - name: HTTP_ENABLE
+              value: "true"
+            - name: OPENSEARCH_JAVA_OPTS
+              value: -Xms512m -Xmx512m
+            - name: NETWORK_HOST
+              value: _site_,_lo_
+            - name: PROCESSORS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
+          resources:
+            requests:
+              cpu: 1
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 512Mi
+          ports:
+            - name: http
+              containerPort: 9200
+              protocol: TCP
+            - name: transport
+              containerPort: 9600
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: transport3
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch
+  namespace: opensearch
+  labels:
+    component: opensearch
+    role: client
+spec:
+  type: LoadBalancer
+  selector:
+    component: opensearch
+    role: client
+  ports:
+    - name: http
+      protocol: TCP
+      port: 9200
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: opens-dashboard
   namespace: opensearch
   labels:
@@ -273,4 +385,3 @@ spec:
       protocol: TCP
       port: 5601
       targetPort: 5601
-
