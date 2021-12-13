@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -5,6 +6,7 @@ metadata:
   labels:
     name: opensearch-ns
     environment: opensearch-ns
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -49,6 +51,7 @@ spec:
             - vm.max_map_count=262144
           securityContext:
             privileged: true
+      hostNetwork: true
       containers:
         - name: opens-master
           image: opensearchproject/opensearch:1.2.0
@@ -74,7 +77,7 @@ spec:
             - name: HTTP_ENABLE
               value: "false"
             - name: OPENSEARCH_JAVA_OPTS
-              value: -Xms512m -Xmx512m
+              value: -Xms256m -Xmx256m
             - name: PROCESSORS
               valueFrom:
                 resourceFieldRef:
@@ -82,10 +85,10 @@ spec:
           resources:
             requests:
               cpu: 1
-              memory: 512Mi
+              memory: 256Mi
             limits:
-              cpu: 2
-              memory: 512Mi
+              cpu: 1
+              memory: 256Mi
           ports:
             - name: transport
               containerPort: 9600
@@ -159,6 +162,7 @@ spec:
             - vm.max_map_count=262144
           securityContext:
             privileged: true
+      hostNetwork: true
       containers:
         - name: opens-data
           image: opensearchproject/opensearch:1.2.0
@@ -182,7 +186,7 @@ spec:
             - name: HTTP_ENABLE
               value: "false"
             - name: OPENSEARCH_JAVA_OPTS
-              value: -Xms512m -Xmx512m
+              value: -Xms256m -Xmx256m
             - name: PROCESSORS
               valueFrom:
                 resourceFieldRef:
@@ -190,10 +194,10 @@ spec:
           resources:
             requests:
               cpu: 1
-              memory: 512Mi
+              memory: 256Mi
             limits:
-              cpu: 2
-              memory: 512Mi
+              cpu: 1
+              memory: 256Mi
           ports:
             - name: transport
               containerPort: 9600
@@ -232,7 +236,7 @@ metadata:
     component: opensearch
     role: client
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       name: opens-client
@@ -266,6 +270,7 @@ spec:
             - vm.max_map_count=262144
           securityContext:
             privileged: true
+      hostNetwork: true
       containers:
         - name: opens-client-app
           image: opensearchproject/opensearch:1.2.0
@@ -289,7 +294,7 @@ spec:
             - name: HTTP_ENABLE
               value: "true"
             - name: OPENSEARCH_JAVA_OPTS
-              value: -Xms512m -Xmx512m
+              value: -Xms256m -Xmx256m
             - name: NETWORK_HOST
               value: _site_,_lo_
             - name: PROCESSORS
@@ -299,10 +304,10 @@ spec:
           resources:
             requests:
               cpu: 1
-              memory: 512Mi
+              memory: 256Mi
             limits:
-              cpu: 2
-              memory: 512Mi
+              cpu: 1
+              memory: 256Mi
           ports:
             - name: http
               containerPort: 9200
@@ -326,7 +331,7 @@ metadata:
     component: opensearch
     role: client
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     component: opensearch
     role: client
@@ -334,6 +339,7 @@ spec:
     - name: http
       protocol: TCP
       port: 9200
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -344,7 +350,7 @@ metadata:
     name: opensearch-dashboard
     app: opensearch-dashboard
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: opensearch-dashboard
@@ -355,6 +361,7 @@ spec:
         app: opensearch-dashboard
         name: opensearch-dashboard
     spec:
+      hostNetwork: true
       containers:
         - name: opensearch-dashboard
           image: opensearchproject/opensearch-dashboards:1.2.0
@@ -376,12 +383,36 @@ metadata:
     name: opens-dashboard
     app: dashboard
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     name: opensearch-dashboard
     app: opensearch-dashboard
   ports:
     - name: http
       protocol: TCP
-      port: 5601
+      port: 5701
       targetPort: 5601
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: opens-ingress
+  namespace: opensearch
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+    - secretName: tls-secret
+  rules:
+    - host: demo.opensearch.lab
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: opensearch
+              servicePort: 9200
+          - path: /admin
+            backend:
+              serviceName: dashboard
+              servicePort: 5701
+
