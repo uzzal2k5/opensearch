@@ -56,18 +56,16 @@ spec:
         - name: opens-master
           image: opensearchproject/opensearch:1.2.0
           env:
-            - name: NAMESPACE
+            - name: namespace
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: NODE_NAME
+            - name: node.name
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: CLUSTER_NAME
+            - name: cluster.name
               value: opensearch_cluster
-            - name: NUMBER_OF_MASTERS
-              value: "2"
             - name: NODE_MASTER
               value: "true"
             - name: NODE_INGEST
@@ -76,8 +74,8 @@ spec:
               value: "false"
             - name: HTTP_ENABLE
               value: "false"
-            - name: OPENSEARCH_JAVA_OPTS
-              value: -Xms256m -Xmx256m
+            - name: ES_JAVA_OPTS
+              value: -Xms512m -Xmx512m
             - name: PROCESSORS
               valueFrom:
                 resourceFieldRef:
@@ -85,19 +83,12 @@ spec:
           resources:
             requests:
               cpu: 1
-              memory: 256Mi
             limits:
               cpu: 1
-              memory: 256Mi
           ports:
             - name: transport
               containerPort: 9600
               protocol: TCP
-          livenessProbe:
-            tcpSocket:
-              port: transport3
-            initialDelaySeconds: 20
-            periodSeconds: 10
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -128,7 +119,7 @@ metadata:
     role: data
 spec:
   serviceName: opensearch-data
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       name: opens-data
@@ -167,15 +158,15 @@ spec:
         - name: opens-data
           image: opensearchproject/opensearch:1.2.0
           env:
-            - name: NAMESPACE
+            - name: namespace
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: NODE_NAME
+            - name: node.name
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: CLUSTER_NAME
+            - name: cluster.name
               value: opensearch_cluster
             - name: NODE_MASTER
               value: "false"
@@ -185,8 +176,8 @@ spec:
               value: "false"
             - name: HTTP_ENABLE
               value: "false"
-            - name: OPENSEARCH_JAVA_OPTS
-              value: -Xms256m -Xmx256m
+            - name: ES_JAVA_OPTS
+              value: -Xms512m -Xmx512m
             - name: PROCESSORS
               valueFrom:
                 resourceFieldRef:
@@ -194,19 +185,12 @@ spec:
           resources:
             requests:
               cpu: 1
-              memory: 256Mi
             limits:
               cpu: 1
-              memory: 256Mi
           ports:
             - name: transport
               containerPort: 9600
               protocol: TCP
-          livenessProbe:
-            tcpSocket:
-              port: transport3
-            initialDelaySeconds: 20
-            periodSeconds: 10
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -275,15 +259,15 @@ spec:
         - name: opens-client-app
           image: opensearchproject/opensearch:1.2.0
           env:
-            - name: NAMESPACE
+            - name: namespace
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: NODE_NAME
+            - name: node.name
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: CLUSTER_NAME
+            - name: cluster.name
               value: opensearch_cluster
             - name: NODE_MASTER
               value: "false"
@@ -293,8 +277,8 @@ spec:
               value: "false"
             - name: HTTP_ENABLE
               value: "true"
-            - name: OPENSEARCH_JAVA_OPTS
-              value: -Xms256m -Xmx256m
+            - name: ES_JAVA_OPTS
+              value: -Xms512m -Xmx512m
             - name: NETWORK_HOST
               value: _site_,_lo_
             - name: PROCESSORS
@@ -304,10 +288,8 @@ spec:
           resources:
             requests:
               cpu: 1
-              memory: 256Mi
             limits:
               cpu: 1
-              memory: 256Mi
           ports:
             - name: http
               containerPort: 9200
@@ -315,11 +297,6 @@ spec:
             - name: transport
               containerPort: 9600
               protocol: TCP
-          livenessProbe:
-            tcpSocket:
-              port: transport3
-            initialDelaySeconds: 20
-            periodSeconds: 10
       restartPolicy: Always
 ---
 apiVersion: v1
